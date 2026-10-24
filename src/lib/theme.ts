@@ -11,7 +11,7 @@ export const themes = [
     id: 'signal-orange',
     name: 'Signal Orange',
     description: 'Warm and direct',
-    swatches: ['#050505', '#242424', '#ff6b2c'],
+    swatches: ['#050505', '#2f2824', '#ff6b2c'],
   },
   {
     id: 'electric-blue',
@@ -23,19 +23,19 @@ export const themes = [
     id: 'terminal-green',
     name: 'Terminal Green',
     description: 'Classic phosphor glow',
-    swatches: ['#020704', '#102017', '#4fe07d'],
+    swatches: ['#020704', '#101d16', '#4fe07d'],
   },
   {
     id: 'sneaky-yellow',
     name: 'Sneaky Yellow',
     description: 'Low-key mischief',
-    swatches: ['#080704', '#27240f', '#f5da4e'],
+    swatches: ['#080808', '#303023', '#ffff00'],
   },
   {
     id: 'wine-red',
     name: 'Wine Red',
-    description: 'Deep after-hours warmth',
-    swatches: ['#090305', '#29151b', '#d45a78'],
+    description: 'Bold plastic red',
+    swatches: ['#090505', '#302525', '#ff2929'],
   },
   {
     id: 'high-contrast',
@@ -54,8 +54,8 @@ const themeGrounds: Record<ThemeID, string> = {
   'signal-orange': '#050505',
   'electric-blue': '#06080c',
   'terminal-green': '#020704',
-  'sneaky-yellow': '#080704',
-  'wine-red': '#090305',
+  'sneaky-yellow': '#080808',
+  'wine-red': '#090505',
   'high-contrast': '#000000',
 }
 
