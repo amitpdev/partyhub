@@ -1,7 +1,8 @@
-import { AlertTriangle, Keyboard, WifiOff, X } from 'lucide-react'
+import { AlertTriangle, Keyboard, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { LinkEntry } from './components/LinkEntry'
 import { PlayerDeck } from './components/PlayerDeck'
+import { PlayerRecovery } from './components/PlayerRecovery'
 import { PlaylistLibrary } from './components/PlaylistLibrary'
 import { QueuePanel } from './components/QueuePanel'
 import { SearchDialog } from './components/SearchDialog'
@@ -46,28 +47,12 @@ export default function App() {
           </span>
           <span>Party Hub</span>
         </a>
-        <PlaylistLibrary party={queue} onSnapshot={player.acceptSnapshot} />
+        <PlaylistLibrary party={queue} onSnapshot={player.acceptSnapshot} recoveryVersion={player.recoveryVersion} />
         <ThemeSwitcher />
-        <ShareParty />
-        <div className={`service-state ${player.status.available ? 'is-ready' : ''}`}>
-          <span aria-hidden="true" />
-          {player.status.available ? 'Player connected' : 'Player offline'}
-        </div>
+        <ShareParty recoveryVersion={player.recoveryVersion} />
       </header>
 
-      {!player.status.available && (
-        <div className="service-banner" role="status">
-          <WifiOff aria-hidden="true" />
-          <div>
-            <strong>The local player is not ready.</strong>
-            <span>
-              {player.status.missing.length
-                ? ` Install ${player.status.missing.join(' and ')}, then restart Party Hub.`
-                : ' Start the Go helper with yarn dev.'}
-            </span>
-          </div>
-        </div>
-      )}
+      {!player.status.available && <PlayerRecovery missing={player.status.missing} />}
 
       {queue.storageError && (
         <div className="recovery-banner" role="alert">

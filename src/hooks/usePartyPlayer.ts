@@ -33,28 +33,81 @@ const initialParty: PartySnapshot = {
 export function usePartyPlayer() {
   const [party, setParty] = useState<PartySnapshot>(initialParty)
   const [notice, setNotice] = useState('')
+  const [recoveryVersion, setRecoveryVersion] = useState(0)
   const partyRef = useRef(party)
   partyRef.current = party
 
   useEffect(() => {
-    void fetchParty()
-      .then(async (snapshot) => {
-        if (window.location.pathname.startsWith('/guest') || snapshot.tracks.length > 0) {
-          return snapshot
+    let alive = true
+    let disconnected = true
+    let pending = false
+    let snapshotVersion = 0
+    let streamGeneration = 0
+    let unsubscribe = () => {}
+    let controller: AbortController | undefined
+
+    function receive(snapshot: PartySnapshot) {
+      if (!alive) return
+      snapshotVersion++
+      if (disconnected) setRecoveryVersion((version) => version + 1)
+      disconnected = false
+      setParty(snapshot)
+    }
+
+    function connectEvents() {
+      unsubscribe()
+      const generation = ++streamGeneration
+      unsubscribe = subscribeToParty(
+        (snapshot) => {
+          if (generation === streamGeneration) receive(snapshot)
+        },
+        () => {
+          if (!alive || generation !== streamGeneration) return
+          disconnected = true
+          setParty((current) => ({
+            ...current,
+            player: { ...current.player, available: false },
+          }))
+        },
+      )
+    }
+
+    async function recover(bootstrap = false) {
+      if (!alive || pending || !disconnected) return
+      pending = true
+      const version = snapshotVersion
+      const request = new AbortController()
+      controller = request
+      const timeout = window.setTimeout(() => request.abort(), 2500)
+      try {
+        let snapshot = await fetchParty(request.signal)
+        if (!alive || request.signal.aborted || version !== snapshotVersion) return
+        if (bootstrap && !window.location.pathname.startsWith('/guest') && snapshot.tracks.length === 0) {
+          const localQueue = loadQueue()
+          if (localQueue.tracks.length > 0) snapshot = await importQueue(localQueue)
         }
-        const localQueue = loadQueue()
-        return localQueue.tracks.length > 0 ? importQueue(localQueue) : snapshot
-      })
-      .then(setParty)
-      .catch(() => undefined)
-    return subscribeToParty(
-      setParty,
-      () =>
-        setParty((current) => ({
-          ...current,
-          player: { ...current.player, available: false },
-        })),
-    )
+        // A newer stream event wins over a slower recovery request.
+        if (!alive || request.signal.aborted || version !== snapshotVersion) return
+        receive(snapshot)
+        if (!bootstrap) connectEvents()
+      } catch {
+        // Keep the queue visible and retry while the service is unreachable.
+      } finally {
+        window.clearTimeout(timeout)
+        pending = false
+      }
+    }
+
+    void recover(true)
+    connectEvents()
+    const retry = window.setInterval(() => void recover(), 3000)
+    return () => {
+      alive = false
+      streamGeneration++
+      window.clearInterval(retry)
+      controller?.abort()
+      unsubscribe()
+    }
   }, [])
 
   const update = useCallback(async (operation: () => Promise<PartySnapshot>) => {
@@ -155,6 +208,7 @@ export function usePartyPlayer() {
 
   return {
     party,
+    recoveryVersion,
     acceptSnapshot: setParty,
     status: party.player,
     notice,

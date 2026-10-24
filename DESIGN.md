@@ -81,7 +81,7 @@ The interface should feel like dependable equipment without imitating a mixer, t
 
 ## Colors
 
-Every theme uses a near-black ground, two surface steps, high-contrast text, and one accent. Midnight Violet is the default. Signal Orange preserves the original warmer equipment character, Electric Blue is cooler, Terminal Green recalls classic phosphor displays, Sneaky Yellow adds a playful low-key signal, Wine Red brings deep after-hours warmth, and High Contrast maximizes edge and text separation. Theme choice is stored only on the DJ laptop; guest phones keep the guest palette.
+Every theme uses a near-black ground, two surface steps, high-contrast text, and one accent. Midnight Violet is the default. Signal Orange preserves the original warmer equipment character, Electric Blue is cooler, Terminal Green recalls classic phosphor displays, Sneaky Yellow adds a playful low-key signal, Cherry Red brings deep after-hours warmth, and High Contrast maximizes edge and text separation. Theme choice is stored only on the DJ laptop; guest phones keep the guest palette.
 
 **The Signal Scarcity Rule.** The selected accent marks progress, the current queue position, the primary song action, and live connection state. It does not decorate every navigation item, panel edge, or secondary action.
 

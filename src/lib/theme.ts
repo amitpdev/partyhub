@@ -33,7 +33,7 @@ export const themes = [
   },
   {
     id: 'wine-red',
-    name: 'Wine Red',
+    name: 'Cherry Red',
     description: 'Bold plastic red',
     swatches: ['#090505', '#302525', '#ff2929'],
   },

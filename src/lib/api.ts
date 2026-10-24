@@ -22,8 +22,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export function fetchParty() {
-  return request<PartySnapshot>('/api/party')
+export function fetchParty(signal?: AbortSignal) {
+  return request<PartySnapshot>('/api/party', { signal })
 }
 
 export function addTrack(url: string) {
@@ -109,6 +109,10 @@ export function createGuestSession(token: string, name: string) {
 
 export function getShareInfo() {
   return request<ShareInfo>('/api/share')
+}
+
+export function startSharing() {
+  return request<ShareInfo>('/api/share/start', { method: 'POST' })
 }
 
 export function endSharing() {

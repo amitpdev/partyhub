@@ -1,23 +1,27 @@
 import { FolderOpen, ListMusic, MoreHorizontal, Save, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { changePlaylist, fetchPlaylists, loadPlaylist } from '../lib/api'
 import { formatDuration } from '../lib/format'
 import type { PartySnapshot, Playlist, PlaylistBackup } from '../types'
+import { PlayerRecoveryHelp } from './PlayerRecovery'
 
 interface Props {
   party: PartySnapshot
   onSnapshot: (party: PartySnapshot) => void
+  recoveryVersion?: number
 }
 
-export function PlaylistLibrary({ party, onSnapshot }: Props) {
+export function PlaylistLibrary({ party, onSnapshot, recoveryVersion = 0 }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const saveDialog = useRef<HTMLDialogElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const previousRecovery = useRef(recoveryVersion)
   const [items, setItems] = useState<Playlist[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [menuID, setMenuID] = useState('')
   const [renaming, setRenaming] = useState<Playlist | null>(null)
   const [name, setName] = useState('')
@@ -26,14 +30,25 @@ export function PlaylistLibrary({ party, onSnapshot }: Props) {
   const active = party.playlist
   const unsaved = active ? active.dirty : party.tracks.length > 0
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setReady(false)
     const library = await fetchPlaylists()
     setItems(library.playlists)
     setReady(true)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (previousRecovery.current === recoveryVersion) return
+    previousRecovery.current = recoveryVersion
+    if (!dialog.current?.open || ready) return
+    void refresh().then(() => {
+      setError('')
+      setShowHelp(false)
+    }).catch((error: unknown) => setError(message(error)))
+  }, [recoveryVersion, ready, refresh])
 
   function reset() {
+    setShowHelp(false)
     setError('')
     setNotice('')
     setPending(null)
@@ -147,74 +162,86 @@ export function PlaylistLibrary({ party, onSnapshot }: Props) {
         {unsaved ? 'Unsaved playlist changes' : 'All playlist changes saved'}
       </span>
 
-      <dialog ref={dialog} className="playlist-dialog" aria-labelledby="playlist-title" onCancel={(event) => { if (busy) event.preventDefault() }}>
-        <header className="playlist-dialog-heading">
-          <h2 id="playlist-title">Playlists</h2>
-          <div className="playlist-actions">
-            <button className="button button--secondary" disabled={busy} onClick={() => fileInput.current?.click()} title="Load playlists from a file"><FolderOpen size={17} aria-hidden="true" />Load</button>
-            <button className="playlist-close" disabled={busy} onClick={() => dialog.current?.close()} aria-label="Close playlists"><X aria-hidden="true" /></button>
-          </div>
-        </header>
-        <p className="playlist-hint">Choose a saved playlist, or load one from a file.</p>
-        {feedback}
-        <fieldset disabled={busy} className="playlist-controls">
-          <input ref={fileInput} type="file" accept="application/json,.json" aria-label="Load playlist file" hidden onChange={(event) => {
-            const file = event.target.files?.[0]
-            event.target.value = ''
-            if (file) void run(() => importFile(file))
-          }} />
-          {renaming && <form className="playlist-editor" onSubmit={(event) => {
-            event.preventDefault()
-            void run(async () => {
-              onSnapshot(await changePlaylist({ action: 'rename', id: renaming.id, name: name.trim() }))
-              setRenaming(null)
-              await refresh()
-            })
-          }}>
-            <label htmlFor="playlist-rename">Rename playlist</label>
-            <input id="playlist-rename" autoFocus required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} />
-            <button className="button button--primary" disabled={!name.trim()}>Save</button>
-            <button type="button" className="text-button" onClick={() => setRenaming(null)}>Cancel</button>
-          </form>}
-          {pending && <div className="playlist-confirm" role="group" aria-label="Confirm playlist replacement">
-            <p>{active?.dirty ? `Save changes to “${active.name}” before loading “${pending.name}”?` : `Load “${pending.name}”? This replaces the queue and stops playback.`}</p>
-            {active?.dirty && <button disabled={!party.tracks.length} className="text-button" onClick={() => void run(async () => {
-              onSnapshot(await changePlaylist({ action: 'save', id: active.id, name: active.name }))
-              await load(pending)
-            })}>Save and load</button>}
-            <button className="text-button" onClick={() => void run(() => load(pending, true))}>{active?.dirty ? 'Load without saving' : 'Yes'}</button>
-            <button className="text-button" onClick={() => setPending(null)}>Cancel</button>
-          </div>}
-          {deleting && <div className="playlist-confirm" role="group" aria-label="Confirm playlist deletion">
-            <p>Delete “{deleting.name}”? The current queue will stay available.</p>
-            <button className="text-button" onClick={() => void run(async () => {
-              onSnapshot(await changePlaylist({ action: 'delete', id: deleting.id }))
-              setDeleting(null)
-              await refresh()
-            })}>Delete playlist</button>
-            <button className="text-button" onClick={() => setDeleting(null)}>Cancel</button>
-          </div>}
-          <div className="playlist-list" aria-busy={busy || !ready}>
-            {!ready && !error && <p>Loading playlists…</p>}
-            {!ready && error && <button className="text-button" onClick={() => void run(refresh)}>Retry</button>}
-            {ready && !items.length && <p className="playlist-empty">No playlists yet. Load a file, or use the Save button in the top bar to save your queue.</p>}
-            {ready && items.map((item) => <article key={item.id} className="playlist-entry">
-              <div className="playlist-entry-row">
-                <button className="playlist-entry-main" aria-label={`Load ${item.name}`} onClick={() => { setPending(item); setMenuID(''); setDeleting(null); setRenaming(null) }}>
-                  <ListMusic aria-hidden="true" />
-                  <span><strong>{item.name}</strong><small>{item.tracks.length} tracks · {formatDuration(item.tracks.reduce((sum, track) => sum + track.duration, 0))}</small></span>
-                </button>
-                <button className="playlist-more" aria-label={`Actions for ${item.name}`} aria-expanded={menuID === item.id} onClick={() => setMenuID(menuID === item.id ? '' : item.id)}><MoreHorizontal aria-hidden="true" /></button>
+      <dialog ref={dialog} className={showHelp ? 'player-help-dialog' : 'playlist-dialog'} aria-labelledby={showHelp ? 'playlist-help-title' : 'playlist-title'} onCancel={(event) => {
+        if (showHelp) { event.preventDefault(); setShowHelp(false) }
+        else if (busy) event.preventDefault()
+      }}>
+        {showHelp ? (
+          <PlayerRecoveryHelp missing={party.player.missing} titleId="playlist-help-title" onClose={() => setShowHelp(false)} />
+        ) : (
+          <>
+            <header className="playlist-dialog-heading">
+              <h2 id="playlist-title">Playlists</h2>
+              <div className="playlist-actions">
+                <button className="button button--secondary" disabled={busy} onClick={() => fileInput.current?.click()} title="Load playlists from a file"><FolderOpen size={17} aria-hidden="true" />Load</button>
+                <button className="playlist-close" disabled={busy} onClick={() => dialog.current?.close()} aria-label="Close playlists"><X aria-hidden="true" /></button>
               </div>
-              {menuID === item.id && <div className="playlist-entry-actions" role="group" aria-label={`Actions for ${item.name}`}>
-                <button className="text-button" onClick={() => { setRenaming(item); setName(item.name); setMenuID(''); setPending(null); setDeleting(null) }}>Rename</button>
-                <button className="text-button" onClick={() => download(item)}>Export</button>
-                <button className="text-button" onClick={() => void run(() => share(item))}>Share</button>
-                <button className="text-button" onClick={() => { setDeleting(item); setMenuID(''); setPending(null); setRenaming(null) }}>Delete</button>
+            </header>
+            <p className="playlist-hint">Choose a saved playlist, or load one from a file.</p>
+            {feedback}
+            <fieldset disabled={busy} className="playlist-controls">
+              <input ref={fileInput} type="file" accept="application/json,.json" aria-label="Load playlist file" hidden onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) void run(() => importFile(file))
+              }} />
+              {renaming && <form className="playlist-editor" onSubmit={(event) => {
+                event.preventDefault()
+                void run(async () => {
+                  onSnapshot(await changePlaylist({ action: 'rename', id: renaming.id, name: name.trim() }))
+                  setRenaming(null)
+                  await refresh()
+                })
+              }}>
+                <label htmlFor="playlist-rename">Rename playlist</label>
+                <input id="playlist-rename" autoFocus required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} />
+                <button className="button button--primary" disabled={!name.trim()}>Save</button>
+                <button type="button" className="text-button" onClick={() => setRenaming(null)}>Cancel</button>
+              </form>}
+              {pending && <div className="playlist-confirm" role="group" aria-label="Confirm playlist replacement">
+                <p>{active?.dirty ? `Save changes to “${active.name}” before loading “${pending.name}”?` : `Load “${pending.name}”? This replaces the queue and stops playback.`}</p>
+                {active?.dirty && <button disabled={!party.tracks.length} className="text-button" onClick={() => void run(async () => {
+                  onSnapshot(await changePlaylist({ action: 'save', id: active.id, name: active.name }))
+                  await load(pending)
+                })}>Save and load</button>}
+                <button className="text-button" onClick={() => void run(() => load(pending, true))}>{active?.dirty ? 'Load without saving' : 'Yes'}</button>
+                <button className="text-button" onClick={() => setPending(null)}>Cancel</button>
               </div>}
-            </article>)}
-          </div>
-        </fieldset>
+              {deleting && <div className="playlist-confirm" role="group" aria-label="Confirm playlist deletion">
+                <p>Delete “{deleting.name}”? The current queue will stay available.</p>
+                <button className="text-button" onClick={() => void run(async () => {
+                  onSnapshot(await changePlaylist({ action: 'delete', id: deleting.id }))
+                  setDeleting(null)
+                  await refresh()
+                })}>Delete playlist</button>
+                <button className="text-button" onClick={() => setDeleting(null)}>Cancel</button>
+              </div>}
+              <div className="playlist-list" aria-busy={busy || !ready}>
+                {!ready && !error && <p>Loading playlists…</p>}
+                {!ready && error && <div className="playlist-actions">
+                  <button className="text-button" onClick={() => void run(refresh)}>Retry</button>
+                  <button className="text-button sharing-help-trigger" onClick={() => setShowHelp(true)}>More info</button>
+                </div>}
+                {ready && !items.length && <p className="playlist-empty">No playlists yet. Load a file, or use the Save button in the top bar to save your queue.</p>}
+                {ready && items.map((item) => <article key={item.id} className="playlist-entry">
+                  <div className="playlist-entry-row">
+                    <button className="playlist-entry-main" aria-label={`Load ${item.name}`} onClick={() => { setPending(item); setMenuID(''); setDeleting(null); setRenaming(null) }}>
+                      <ListMusic aria-hidden="true" />
+                      <span><strong>{item.name}</strong><small>{item.tracks.length} tracks · {formatDuration(item.tracks.reduce((sum, track) => sum + track.duration, 0))}</small></span>
+                    </button>
+                    <button className="playlist-more" aria-label={`Actions for ${item.name}`} aria-expanded={menuID === item.id} onClick={() => setMenuID(menuID === item.id ? '' : item.id)}><MoreHorizontal aria-hidden="true" /></button>
+                  </div>
+                  {menuID === item.id && <div className="playlist-entry-actions" role="group" aria-label={`Actions for ${item.name}`}>
+                    <button className="text-button" onClick={() => { setRenaming(item); setName(item.name); setMenuID(''); setPending(null); setDeleting(null) }}>Rename</button>
+                    <button className="text-button" onClick={() => download(item)}>Export</button>
+                    <button className="text-button" onClick={() => void run(() => share(item))}>Share</button>
+                    <button className="text-button" onClick={() => { setDeleting(item); setMenuID(''); setPending(null); setRenaming(null) }}>Delete</button>
+                  </div>}
+                </article>)}
+              </div>
+            </fieldset>
+          </>
+        )}
       </dialog>
 
       <dialog ref={saveDialog} className="playlist-dialog playlist-save-dialog" aria-labelledby="playlist-save-title" onCancel={(event) => { if (busy) event.preventDefault() }}>

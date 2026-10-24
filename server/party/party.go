@@ -465,11 +465,27 @@ func (manager *Manager) ConfigureShare(publicURL string) (ShareInfo, error) {
 	return manager.shareInfoLocked(), nil
 }
 
+// StartShare re-enables guest access using the tunnel already configured by the launcher.
+func (manager *Manager) StartShare() (ShareInfo, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	if manager.publicURL == "" {
+		return ShareInfo{}, errors.New("no guest tunnel is configured; start Party Hub with yarn party")
+	}
+	if !manager.shareActive {
+		manager.shareActive = true
+		manager.guestToken = randomID(24)
+		manager.sessions = make(map[string]Session)
+		manager.attempts = make(map[string][]time.Time)
+		manager.revision++
+	}
+	return manager.shareInfoLocked(), nil
+}
+
 func (manager *Manager) EndShare() {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 	manager.shareActive = false
-	manager.publicURL = ""
 	manager.guestToken = randomID(24)
 	manager.sessions = make(map[string]Session)
 	manager.attempts = make(map[string][]time.Time)

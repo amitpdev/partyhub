@@ -464,3 +464,70 @@ func TestEndingShareRevokesGuestSessionsButKeepsQueue(t *testing.T) {
 		t.Fatal("ending share cleared the queue")
 	}
 }
+
+func TestGuestAccessCanRestartWithoutReconfiguringTunnel(t *testing.T) {
+	localPlayer := &fakePlayer{}
+	manager := New(localPlayer, fakeResolver{tracks: map[string]youtube.Track{
+		"one": testTrack("aaaaaaaaaaa", 180),
+	}}, "")
+	if _, err := manager.Add("one", Session{}, true); err != nil {
+		t.Fatal(err)
+	}
+	before := manager.Snapshot("", true)
+	original, err := manager.ConfigureShare("https://party.ngrok.app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldToken := strings.Split(original.GuestURL, "#token=")[1]
+	oldSession, err := manager.CreateSession(oldToken, "Maya")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.EndShare()
+	off := manager.ShareInfo()
+	if off.Active || off.PublicURL != original.PublicURL || off.GuestURL != "" {
+		t.Fatalf("tunnel not preserved while access is off: %#v", off)
+	}
+	if _, err := manager.CreateSession(oldToken, "Maya"); err == nil {
+		t.Fatal("old link worked while disabled")
+	}
+	resumed, err := manager.StartShare()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resumed.Active || resumed.PublicURL != original.PublicURL || resumed.GuestURL == original.GuestURL {
+		t.Fatalf("unexpected resumed sharing: %#v", resumed)
+	}
+	if _, ok := manager.Session(oldSession.ID); ok {
+		t.Fatal("old session was revived")
+	}
+	if _, err := manager.CreateSession(oldToken, "Maya"); err == nil {
+		t.Fatal("old token was revived")
+	}
+	newToken := strings.Split(resumed.GuestURL, "#token=")[1]
+	session, err := manager.CreateSession(newToken, "Maya")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := manager.StartShare()
+	if err != nil || again.GuestURL != resumed.GuestURL {
+		t.Fatal("repeated enable rotated the active link")
+	}
+	if _, ok := manager.Session(session.ID); !ok {
+		t.Fatal("repeated enable revoked a valid session")
+	}
+	after := manager.Snapshot("", true)
+	if len(after.Tracks) != len(before.Tracks) || after.Tracks[0].QueueID != before.Tracks[0].QueueID || after.Player.State != before.Player.State || after.Player.Generation != before.Player.Generation {
+		t.Fatal("toggling guest access changed queue or playback")
+	}
+}
+
+func TestStartSharingRequiresConfiguredTunnel(t *testing.T) {
+	manager := New(&fakePlayer{}, fakeResolver{}, "")
+	if _, err := manager.StartShare(); err == nil {
+		t.Fatal("guest access enabled without a tunnel")
+	}
+	if manager.ShareInfo().Active {
+		t.Fatal("guest access became active")
+	}
+}

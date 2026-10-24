@@ -250,6 +250,8 @@ func main() {
 		writeJSON(response, http.StatusOK, info)
 	})
 
+	mux.HandleFunc("POST /api/share/start", startSharingHandler(partyManager))
+
 	mux.HandleFunc("POST /api/share/end", func(response http.ResponseWriter, request *http.Request) {
 		if !isLocalDJ(request) {
 			writeError(response, http.StatusForbidden, errors.New("sharing settings are only available locally"))
@@ -465,4 +467,19 @@ func spaHandler(directory string) http.Handler {
 		}
 		http.ServeFile(response, request, filepath.Join(directory, "index.html"))
 	})
+}
+
+func startSharingHandler(manager *party.Manager) http.HandlerFunc {
+	return func(response http.ResponseWriter, request *http.Request) {
+		if !isLocalDJ(request) {
+			writeError(response, http.StatusForbidden, errors.New("sharing settings are only available locally"))
+			return
+		}
+		info, err := manager.StartShare()
+		if err != nil {
+			writeError(response, http.StatusConflict, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, info)
+	}
 }

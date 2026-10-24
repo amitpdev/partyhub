@@ -270,3 +270,34 @@ func TestYouTubeSearchHandlerRejectsMalformedBody(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
+
+func TestStartSharingHandler(t *testing.T) {
+	for _, tc := range []struct {
+		name, host string
+		configured bool
+		want       int
+	}{
+		{"local configured party", "127.0.0.1:8787", true, http.StatusOK},
+		{"no tunnel configured", "localhost:8787", false, http.StatusConflict},
+		{"remote request", "party.example.com", true, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manager := party.New(searchTestPlayer{}, searchTestResolver{}, "")
+			if tc.configured {
+				if _, err := manager.ConfigureShare("https://party.example.com"); err != nil {
+					t.Fatal(err)
+				}
+				manager.EndShare()
+			}
+			request := httptest.NewRequest(http.MethodPost, "http://"+tc.host+"/api/share/start", nil)
+			response := httptest.NewRecorder()
+			startSharingHandler(manager).ServeHTTP(response, request)
+			if response.Code != tc.want {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+			}
+			if tc.want == http.StatusForbidden && manager.ShareInfo().Active {
+				t.Fatal("remote request enabled access")
+			}
+		})
+	}
+}

@@ -65,7 +65,7 @@ The Go service owns the queue and persists it under the operating system's user 
 
 ## Invite friends
 
-Select **Invite friends** in the local DJ dashboard to display the QR code. The QR link contains a temporary guest capability. Ending guest access invalidates existing guest sessions but keeps the queue.
+Select **Invite friends** in the local DJ dashboard to display the QR code. The QR link contains a temporary guest capability. Ending guest access invalidates existing guest sessions but keeps the queue, playback, and running ngrok tunnel. Select **Allow guests** in the same dialog to re-enable access without restarting anything; friends must scan the new QR code.
 
 Guests must enter a display name. They can:
 
@@ -88,7 +88,7 @@ yarn dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). This starts Vite with automatic frontend updates and the local Go player, without starting ngrok. Stop this command before running `yarn party` because both start the Go service on port 8787.
 
-To edit the frontend while a party is running, keep `yarn party` running and start `yarn dev:web` in another terminal. Use the dashboard on port 5173 for automatic updates; the player and ngrok keep running. Run `yarn build` and refresh guest browsers when you want them to receive the updated frontend. Refreshing the dashboard does not interrupt playback; the Go service keeps the player running.
+To edit the frontend while a party is running, keep `yarn party` running and start `yarn dev:web` in another terminal. Use the dashboard on port 5173 for automatic updates; the player and ngrok keep running. Run `yarn build` and refresh guest browsers when you want them to receive the updated frontend. Refreshing the dashboard does not interrupt playback; the Go service keeps the player running. If the service stops, the dashboard retries every three seconds and reconnects automatically when it returns, without refreshing the page or starting playback.
 
 Useful separate commands:
 

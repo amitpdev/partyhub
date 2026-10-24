@@ -145,3 +145,28 @@ it('treats dismissing the share sheet as cancellation', async () => {
   await waitFor(() => expect(screen.getByRole('button', { name: 'Share' })).toBeEnabled())
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
+
+it('offers recovery help when the playlist library cannot be loaded', async () => {
+  vi.mocked(fetchPlaylists).mockRejectedValue(new Error('Failed to fetch'))
+  render(<PlaylistLibrary party={party} onSnapshot={snapshot} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Playlist' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'More info' }))
+  expect(screen.getByRole('dialog', { name: 'Get the player running' })).toHaveTextContent('yarn party')
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
+  expect(screen.getByRole('dialog', { name: 'Playlists' })).toBeInTheDocument()
+  vi.mocked(fetchPlaylists).mockResolvedValue({ version: 1, playlists: [playlist] })
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByRole('button', { name: 'Load Summer Party' })).toBeInTheDocument()
+})
+
+it('automatically reloads an errored open playlist dialog after service recovery', async () => {
+  vi.mocked(fetchPlaylists).mockRejectedValue(new Error('offline'))
+  const { rerender } = render(<PlaylistLibrary party={party} onSnapshot={snapshot} recoveryVersion={0} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Playlist' }))
+  await screen.findByRole('button', { name: 'More info' })
+  fireEvent.click(screen.getByRole('button', { name: 'More info' }))
+  vi.mocked(fetchPlaylists).mockResolvedValue({ version: 1, playlists: [playlist] })
+  rerender(<PlaylistLibrary party={party} onSnapshot={snapshot} recoveryVersion={1} />)
+  expect(await screen.findByRole('button', { name: 'Load Summer Party' })).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
