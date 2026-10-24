@@ -4,7 +4,7 @@
 
 Audio plays on the laptop connected to your speakers, and you keep the power to skip.
 
-<img width="600" alt="0c47e207-aeb8-4fa5-be98-f1b62b24ae9f" src="https://github.com/user-attachments/assets/d8061e7d-c391-4151-b57d-5c1d5c828107" />
+<img width="600" alt="Party Hub_ Midnight Loft Session" src="https://github.com/user-attachments/assets/8fb883a3-94a8-4f5e-bffc-4c6bd44298bc" />
 
 **[🎧 Try the interactive demo](https://amitpdev.github.io/partyhub/)** · Sample songs, simulated playback, no setup.
 
