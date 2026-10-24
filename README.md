@@ -79,3 +79,9 @@ yarn verify      # Lint, test, and build
 - Playback does not resume automatically after restarting the Go service
 - Guest identity is party-scoped and does not use accounts
 - Guest access requires the ngrok CLI
+
+## License
+
+Party Hub is licensed under the [GNU Affero General Public License v3.0](LICENSE). You may use, modify, and self-host it, subject to the license terms.
+
+Copyright © 2026 Amit Palomo.
