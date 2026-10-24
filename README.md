@@ -6,6 +6,8 @@ Audio plays on the laptop connected to your speakers, and you keep the power to 
 
 <img width="600" alt="0c47e207-aeb8-4fa5-be98-f1b62b24ae9f" src="https://github.com/user-attachments/assets/d8061e7d-c391-4151-b57d-5c1d5c828107" />
 
+**[🎧 Try the interactive demo](https://amitpdev.github.io/partyhub/)** · Sample songs, simulated playback, no setup.
+
 ## Features
 
 - Search YouTube without an API key

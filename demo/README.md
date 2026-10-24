@@ -22,7 +22,7 @@ yarn --cwd demo build
 yarn --cwd demo preview
 ```
 
-The build is in `demo/dist/`; preview uses http://127.0.0.1:4174. Relative asset URLs support deployment under a GitHub Pages project path. Guest preview uses `?view=guest`, so it needs no special server routing. No hosting or GitHub repository is configured yet.
+The build is in `demo/dist/`; preview uses http://127.0.0.1:4174. Relative asset URLs support deployment under a GitHub Pages project path. Guest preview uses `?view=guest`, so it needs no special server routing. The GitHub Pages workflow is included; enable Pages in the repository settings before the first deployment.
 
 ## How it stays separate
 
@@ -32,4 +32,12 @@ The build is in `demo/dist/`; preview uses http://127.0.0.1:4174. Relative asset
 - Existing dependencies are reused from the parent `node_modules`; this folder is not standalone yet.
 - Demo source, tests, and artwork are tracked in Git; generated `dist/` and `node_modules/` stay ignored.
 
-For GitHub Pages deployment from this repository, install dependencies at the repository root, run `yarn --cwd demo build`, and publish the `demo/dist/` artifact. No deployment workflow is configured yet.
+## Deploy to GitHub Pages
+
+1. Open the repository’s **Settings → Pages** and set **Source** to **GitHub Actions**.
+2. Commit and push the demo and `.github/workflows/deploy-demo.yml` to `main`.
+3. Watch **Actions → Deploy demo to GitHub Pages** for the published URL.
+
+The workflow installs the root dependencies with Yarn Classic 1.22.22, runs the demo tests, builds the demo, and publishes only `demo/dist/`. Future pushes to `main` redeploy automatically. You can also run it manually from the Actions tab; production deployments are limited to `main`.
+
+The expected project URL is https://amitpdev.github.io/partyhub/. No Go service, ngrok tunnel, or separate hosting account is needed.
