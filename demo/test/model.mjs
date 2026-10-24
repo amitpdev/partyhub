@@ -1,0 +1,125 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { DemoEngine } from '../src/model.ts'
+import { catalog } from '../src/catalog.ts'
+
+function memoryStorage() {
+  const values = new Map()
+  return { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value), values }
+}
+
+test('starts with a populated paused queue and three sample playlists', () => {
+  const engine = new DemoEngine()
+  const state = engine.snapshot()
+  assert.equal(state.tracks.length, 7)
+  assert.equal(state.currentIndex, 1)
+  assert.equal(state.player.state, 'paused')
+  assert.equal(engine.library().playlists.length, 3)
+  assert.equal(state.playlist.dirty, false)
+})
+test('search uses only the bundled catalog', () => {
+  const engine = new DemoEngine()
+  assert.equal(engine.search('NeOn').length, 2)
+  assert.equal(engine.search('orbit club').length, 2)
+  const fallback = engine.search('not in the catalog')
+  assert.equal(fallback.length, 6)
+  const queued = new Set(engine.snapshot().tracks.map((track) => track.providerId))
+  assert.ok(fallback.every((track) => !queued.has(track.providerId)))
+})
+test('guest additions appear in the host queue with ownership and dirty state', () => {
+  const engine = new DemoEngine()
+  const guest = engine.add(catalog[8].url, true)
+  const track = guest.tracks.at(-1)
+  assert.equal(track.addedBy, 'Demo friend')
+  assert.equal(track.canRemove, true)
+  assert.equal(track.canPlay, false)
+  assert.equal(guest.playlist, undefined)
+  assert.equal(engine.snapshot().playlist.dirty, true)
+  engine.remove(track.queueId, true)
+  assert.equal(engine.snapshot().tracks.length, 7)
+  assert.throws(() => engine.remove(engine.snapshot().tracks[3].queueId, true), /cannot be removed/)
+})
+test('duplicates and a fourth guest song are rejected', () => {
+  const engine = new DemoEngine()
+  assert.throws(() => engine.add(catalog[1].url), /already/)
+  for (const track of catalog.slice(8, 11)) engine.add(track.url, true)
+  assert.throws(() => engine.add(catalog[11].url, true), /three upcoming/)
+})
+test('simulation advances tracks without changing playlist contents', () => {
+  const engine = new DemoEngine()
+  const initial = engine.snapshot()
+  engine.control('seekTo', initial.player.duration - 1)
+  engine.control('resume')
+  engine.tick()
+  const after = engine.snapshot()
+  assert.equal(after.currentIndex, initial.currentIndex + 1)
+  assert.equal(after.player.position, 0)
+  assert.equal(after.player.state, 'playing')
+  assert.equal(after.playlist.dirty, false)
+  engine.control('pause')
+  engine.tick()
+  assert.equal(engine.snapshot().player.position, 0)
+})
+test('reordering and clearing are editorial changes', () => {
+  const engine = new DemoEngine()
+  const track = engine.snapshot().tracks[3]
+  engine.action('move', { queueId: track.queueId, direction: -1 })
+  assert.equal(engine.snapshot().tracks[2].queueId, track.queueId)
+  assert.equal(engine.snapshot().playlist.dirty, true)
+  engine.action('clear')
+  assert.equal(engine.snapshot().tracks.length, 0)
+  assert.equal(engine.snapshot().player.state, 'idle')
+})
+test('saving is explicit and loading stops playback without changing volume', () => {
+  const engine = new DemoEngine()
+  const saved = engine.snapshot().playlist
+  engine.add(catalog[8].url)
+  assert.equal(engine.library().playlists[0].tracks.length, 7)
+  assert.throws(() => engine.loadPlaylist(saved.id, 'replace'), /Save or discard/)
+  engine.savePlaylist(saved.id, saved.name)
+  assert.equal(engine.library().playlists[0].tracks.length, 8)
+  const before = engine.snapshot()
+  const loaded = engine.loadPlaylist(engine.library().playlists[1].id, 'replace')
+  assert.equal(loaded.party.player.state, 'stopped')
+  assert.equal(loaded.party.currentIndex, 0)
+  assert.equal(loaded.party.volume, before.volume)
+  assert.notEqual(loaded.party.tracks[0].queueId, before.tracks[0].queueId)
+})
+test('import adds new copies and invalid multi-playlist imports are atomic', () => {
+  const engine = new DemoEngine()
+  const backup = engine.library()
+  engine.importPlaylists(backup)
+  assert.equal(engine.library().playlists.length, 6)
+  assert.notEqual(engine.library().playlists[0].id, engine.library().playlists[3].id)
+  const invalid = structuredClone(backup)
+  invalid.playlists[2].tracks[0].providerId = 'bad'
+  assert.throws(() => engine.importPlaylists(invalid), /invalid track/)
+  assert.equal(engine.library().playlists.length, 6)
+})
+test('browser persistence is isolated and restored playback is paused', () => {
+  const storage = memoryStorage()
+  const engine = new DemoEngine(storage)
+  engine.control('resume')
+  engine.add(catalog[8].url)
+  const restored = new DemoEngine(storage)
+  assert.equal(restored.snapshot().tracks.length, 8)
+  assert.equal(restored.snapshot().player.state, 'paused')
+  assert.deepEqual([...storage.values.keys()], ['partyhub.demo.v1'])
+})
+test('corrupt storage and disabled storage do not prevent using the demo', () => {
+  const broken = { getItem: () => '{broken', setItem: () => { throw new Error('blocked') } }
+  const engine = new DemoEngine(broken)
+  engine.add(catalog[8].url)
+  assert.equal(engine.snapshot().tracks.length, 8)
+})
+test('guest access can be toggled and reset restores the demo', () => {
+  const engine = new DemoEngine()
+  engine.setSharing(false)
+  assert.throws(() => engine.snapshot(true), /Guest access is off/)
+  engine.setSharing(true)
+  engine.add(catalog[8].url, true)
+  engine.reset()
+  assert.equal(engine.snapshot().tracks.length, 7)
+  assert.equal(engine.snapshot().playlist.dirty, false)
+  assert.equal(engine.isSharing(), true)
+})
