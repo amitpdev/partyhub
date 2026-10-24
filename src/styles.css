@@ -1261,10 +1261,11 @@ kbd {
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-control);
-  color: var(--muted);
-  background: var(--surface);
+  color: #101010;
+  background: var(--accent);
+  box-shadow: 0 0 18px var(--accent-ring);
   cursor: pointer;
   font-size: 14px;
 }
@@ -1393,12 +1394,17 @@ kbd {
 }
 
 .share-trigger:hover {
-  color: var(--text);
-  border-color: var(--control);
+  color: #101010;
+  background: color-mix(in srgb, var(--accent) 90%, white);
+  border-color: var(--accent);
 }
 
 .share-trigger svg {
   width: 17px;
+}
+
+.share-trigger.is-active > svg {
+  color: inherit;
 }
 
 .share-trigger i,
@@ -1408,6 +1414,8 @@ kbd {
   border-radius: 50%;
   background: var(--accent);
 }
+
+.share-trigger i { background: currentColor; }
 
 .modal-backdrop {
   position: fixed;

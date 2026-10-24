@@ -100,7 +100,7 @@ try {
 
   console.log(`\nDJ dashboard: ${localUrl}`)
   console.log(`Guest access: ${publicUrl}/guest`)
-  console.log('Open the DJ dashboard and click “Guests can join” to show the QR code.')
+  console.log('Open the DJ dashboard and click “Invite friends” to show the QR code.')
   console.log('Press Ctrl+C to end sharing.\n')
 
   await new Promise(() => {})

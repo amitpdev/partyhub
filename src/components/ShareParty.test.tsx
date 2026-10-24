@@ -37,7 +37,7 @@ describe('ShareParty recovery feedback', () => {
     })
     render(<ShareParty />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Share party|Guests can join/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Invite friends' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Copy link' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Select and copy it below')
@@ -48,7 +48,7 @@ describe('ShareParty recovery feedback', () => {
     endSharing.mockRejectedValue(new Error('server unavailable'))
     render(<ShareParty />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Share party|Guests can join/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Invite friends' }))
     fireEvent.click(await screen.findByRole('button', { name: 'End guest access' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -61,7 +61,7 @@ describe('ShareParty recovery feedback', () => {
     getShareInfo.mockRejectedValue(new Error('offline'))
     render(<ShareParty />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Share party|Guests can join/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Invite friends' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Sharing status unavailable')
     getShareInfo.mockResolvedValue(activeShare)

@@ -109,9 +109,9 @@ export function ShareParty() {
 
   return (
     <>
-      <button ref={triggerRef} className="share-trigger" onClick={openDialog}>
+      <button ref={triggerRef} className={`share-trigger${share.active ? ' is-active' : ''}`} aria-label="Invite friends" title={share.active ? 'Invite friends · Guest access active' : 'Invite friends'} onClick={openDialog}>
         <Users aria-hidden="true" />
-        <span>{share.active ? 'Guests can join' : 'Share party'}</span>
+        <span>Invite friends</span>
         {share.active && <i aria-hidden="true" />}
       </button>
 

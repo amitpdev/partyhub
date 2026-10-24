@@ -50,7 +50,7 @@ vi.mock('./hooks/usePartyPlayer', () => ({
 }))
 
 vi.mock('./components/ShareParty', () => ({
-  ShareParty: () => <button>Share party</button>,
+  ShareParty: () => <button>Invite friends</button>,
 }))
 
 vi.mock('./components/ThemeSwitcher', () => ({

@@ -1,10 +1,12 @@
 # Party Hub
 
-Party Hub is a host-laptop dashboard for running music at parties and gatherings. Search YouTube or paste a link, arrange the live set, and let friends add songs from their phones while audio stays on the laptop connected to the speakers.
+🎧 Turn your laptop into the party’s DJ booth, where you can play YouTube tracks, save your favorite sets, and let friends scan a QR code to add songs while the party is going.
+
+Audio plays on the laptop connected to your speakers, and you keep the power to skip.
 
 <img width="600" alt="0c47e207-aeb8-4fa5-be98-f1b62b24ae9f" src="https://github.com/user-attachments/assets/d8061e7d-c391-4151-b57d-5c1d5c828107" />
 
-## Phase 1
+## Features
 
 - YouTube tracks only
 - DJ and guest YouTube search without an API key
@@ -13,67 +15,57 @@ Party Hub is a host-laptop dashboard for running music at parties and gatherings
 - Pause, seek, and control volume
 - Automatic advance and unavailable-track skipping
 - Server-backed queue and volume persistence
+- Saved local playlists with load, save, rename, and delete controls
+- Playlist file import, export, and sharing
+- Unsaved playlist indicators and save prompts when switching sets
 - Optional QR-code guest access through ngrok
 - Guest names, attribution, limits, and ownership-based removal
 
-Search returns up to 12 standard videos and excludes live or upcoming streams, Shorts, videos with unknown duration, and videos longer than 15 minutes. Selecting a result uses the same queue validation and insertion path as a pasted link. Guests can search after joining an active shared party; queue limits apply when they add a result, not while they search.
+Search returns up to 24 standard videos and excludes live or upcoming streams, Shorts, videos with unknown duration, and videos longer than 15 minutes. Selecting a result uses the same queue validation and insertion path as a pasted link. Guests can search after joining an active shared party; queue limits apply when they add a result, not while they search.
 
 ## Requirements
 
 - Node.js 22 or newer
-- Go 1.24 or newer
+- Yarn Classic 1.22.22 (the version declared in `package.json`)
+- Go 1.27.3 or newer (as declared in `go.mod`)
 - [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)
 - [`mpv`](https://mpv.io/)
 - [`ngrok`](https://ngrok.com/) for guest access
 
-On macOS:
+Install Yarn Classic after installing Node.js:
+
+```sh
+npm install --global yarn@1.22.22
+```
+
+On macOS, install the playback tools and ngrok with Homebrew:
 
 ```sh
 brew install yt-dlp mpv ngrok
 ```
 
-## Run locally
+## Run a party
+
+Install dependencies and configure ngrok once:
 
 ```sh
 yarn install
-yarn dev
-```
-
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The command starts both the Vite dashboard and the Go playback helper bound to localhost.
-
-The Go service owns the queue and persists it under the operating system's user configuration directory. On its first empty start, the dashboard imports a queue saved by the earlier browser-only version.
-
-Useful separate commands:
-
-```sh
-yarn dev:web
-yarn dev:server
-yarn verify
-```
-
-## Share a party with guests
-
-Sign in to ngrok once before the first party:
-
-```sh
 ngrok config add-authtoken YOUR_TOKEN
 ```
 
-Stop `yarn dev`, then run:
+Start Party Hub:
 
 ```sh
 yarn party
 ```
 
-This command:
+Open the DJ dashboard at [http://127.0.0.1:8787](http://127.0.0.1:8787). This builds the web app, starts the local Go player, and opens an ngrok tunnel so friends can join from their phones. Both processes keep running until you press `Ctrl+C`.
 
-1. builds the dashboard;
-2. starts the local Go player at `http://127.0.0.1:8787`;
-3. starts one ngrok HTTPS tunnel;
-4. registers the temporary public URL; and
-5. keeps both processes running until you press `Ctrl+C`.
+The Go service owns the queue and persists it under the operating system's user configuration directory. On its first empty start, the dashboard imports a queue saved by the earlier browser-only version.
 
-Open the local DJ dashboard and select **Guests can join** to display the QR code. The QR link contains a temporary guest capability. Ending guest access invalidates existing guest sessions but keeps the queue.
+## Invite friends
+
+Select **Invite friends** in the local DJ dashboard to display the QR code. The QR link contains a temporary guest capability. Ending guest access invalidates existing guest sessions but keeps the queue.
 
 Guests must enter a display name. They can:
 
@@ -84,7 +76,27 @@ Guests must enter a display name. They can:
 
 Guests cannot control playback, reorder tracks, remove other people's tracks, or clear the queue. Duplicate videos, playlists, and live streams are rejected.
 
-The free ngrok URL changes between sessions and may show ngrok's one-time browser warning before the Party Hub join screen. Anyone holding the active QR link can request a guest session, so end sharing when the party is over.
+Free ngrok accounts include a [stable, automatically assigned dev domain](https://ngrok.com/blog/free-static-domains-ngrok-users). Guests may see ngrok's browser warning before the Party Hub join screen. Party Hub creates a fresh guest token when a party starts, so use the new QR code each session even if the domain stays the same. Anyone holding the active QR link can join, so end sharing when the party is over.
+
+## Local development
+
+For development without guest access, run:
+
+```sh
+yarn dev
+```
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). This starts Vite with automatic frontend updates and the local Go player, without starting ngrok. Stop this command before running `yarn party` because both start the Go service on port 8787.
+
+To edit the frontend while a party is running, keep `yarn party` running and start `yarn dev:web` in another terminal. Use the dashboard on port 5173 for automatic updates; the player and ngrok keep running. Run `yarn build` and refresh guest browsers when you want them to receive the updated frontend. Refreshing the dashboard does not interrupt playback; the Go service keeps the player running.
+
+Useful separate commands:
+
+```sh
+yarn dev:web
+yarn dev:server
+yarn verify
+```
 
 ## Local playlists
 
@@ -119,17 +131,16 @@ Automatic advancement also runs in the Go service, preventing multiple browsers 
 
 Guest searches are unlimited over time. To protect the host laptop, a newer search replaces an older search from the same guest and no more than three `yt-dlp` searches run simultaneously.
 
-## YouTube and advertisements
+## YouTube playback
 
-Party Hub deliberately does not use the YouTube IFrame Player. It follows the direct-stream `yt-dlp`/`mpv` approach proven in the local BoardTube project, which did not play YouTube-served advertisements during development and smoke testing.
+Party Hub plays YouTube audio through `yt-dlp` and `mpv` rather than the YouTube IFrame Player. Ad-free playback is not guaranteed.
 
-This is not a permanent guarantee. It is an unofficial integration, can break when YouTube changes delivery, and may conflict with YouTube's terms and developer policies. Keep `yt-dlp` current and use the project with an understanding of that tradeoff.
+This unofficial integration can break when YouTube changes delivery and may conflict with YouTube's terms and developer policies. Keep `yt-dlp` current.
 
 ## Current limitations
 
 - No visible video or karaoke output
 - No Spotify support
-- Restoring the page restores queue state but does not autoplay
+- Restarting the Go service restores the saved queue without automatically resuming playback
 - Guest identity is party-scoped and does not use accounts
 - Guest access currently depends on a separately installed ngrok CLI
-- The smoke test verifies direct muted media playback, not every possible advertisement or regional playback path
