@@ -172,6 +172,9 @@ export function SearchDialog({
                 placeholder="Artist, song, or karaoke title"
                 aria-label="Search YouTube"
                 autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 enterKeyHint="search"
                 maxLength={200}
                 disabled={loading}

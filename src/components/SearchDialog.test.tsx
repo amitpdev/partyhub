@@ -62,6 +62,15 @@ describe('SearchDialog', () => {
 
   afterEach(cleanup)
 
+  it('disables mobile text correction for search queries', () => {
+    openDialog()
+
+    const input = screen.getByRole('searchbox', { name: 'Search YouTube' })
+    expect(input).toHaveAttribute('autocorrect', 'off')
+    expect(input).toHaveAttribute('autocapitalize', 'none')
+    expect(input).toHaveAttribute('spellcheck', 'false')
+  })
+
   it('searches only after submit and shows empty and retry states', async () => {
     searchYouTube
       .mockRejectedValueOnce(new Error('offline'))
