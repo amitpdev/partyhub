@@ -86,6 +86,19 @@ Guests cannot control playback, reorder tracks, remove other people's tracks, or
 
 The free ngrok URL changes between sessions and may show ngrok's one-time browser warning before the Party Hub join screen. Anyone holding the active QR link can request a guest session, so end sharing when the party is over.
 
+## Local playlists
+
+Open **Playlist** in the top bar to browse saved playlists. Each playlist appears once, with its name, track count, and duration. Select it to replace the queue after confirmation. Playback stops and the first song is prepared without autoplay; volume stays unchanged.
+
+- **Load** adds playlists from a JSON file to the library as fresh copies (8 MB maximum). Select the imported playlist to use it.
+- The **…** button beside each playlist contains **Rename**, **Export**, **Share**, and **Delete**. Export downloads that playlist only. Share opens the system share sheet for the playlist file when supported; otherwise it downloads the file for you to send.
+- The separate **Save** icon in the top bar saves the entire current queue (played, current, and upcoming songs). For a loaded playlist, choose **Save changes** or **Save as new**.
+- The **Save** icon lights up when the queue is unsaved or the loaded playlist has changes. Playing, skipping, seeking, and changing volume do not mark it as changed.
+- Loading another playlist while there are unsaved playlist changes offers save, discard, or cancel.
+- The live queue still saves automatically, independently of named playlists. The playlist connection and change indicator survive service restarts.
+
+The Go service stores versioned `playlists.json` alongside its `state.json` in the operating system's user configuration directory (or alongside `PARTYHUB_STATE_PATH` when set). Playlist controls are host-only. Saving and browsing do not require mpv or a YouTube connection; song availability is handled at playback time. Duplicate names are allowed. Loading skips repeated videos and rejects sets exceeding the existing queue capacity without partially changing the queue.
+
 ## Keyboard controls
 
 - `Space`: play or pause

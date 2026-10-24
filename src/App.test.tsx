@@ -71,6 +71,10 @@ it('places the standalone song adder before and outside the queue', () => {
   expect(songAdder).toContainElement(search)
   expect(songAdder).toHaveTextContent('or paste a link')
   expect(queue).not.toContainElement(input)
+  const playlist = screen.getByRole('button', { name: 'Playlist' })
+  expect(screen.getByRole('banner')).toContainElement(playlist)
+  expect(screen.getByRole('main')).not.toContainElement(playlist)
+  expect(screen.queryByText('Host laptop')).not.toBeInTheDocument()
   expect(
     songAdder.compareDocumentPosition(queue) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy()

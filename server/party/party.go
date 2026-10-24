@@ -46,6 +46,7 @@ type Snapshot struct {
 	Volume       float64       `json:"volume"`
 	Player       player.Status `json:"player"`
 	StorageError string        `json:"storageError,omitempty"`
+	Playlist     *PlaylistLink `json:"playlist,omitempty"`
 }
 
 type ShareInfo struct {
@@ -74,6 +75,10 @@ type Resolver interface {
 }
 
 type Manager struct {
+	playlistStore     PlaylistStore
+	library           playlistLibrary
+	libraryError      error
+	playlist          *PlaylistLink
 	mu                sync.Mutex
 	player            Player
 	resolver          Resolver
@@ -93,6 +98,7 @@ type Manager struct {
 }
 
 type persistedState struct {
+	Playlist     *PlaylistLink    `json:"playlist,omitempty"`
 	Version      int              `json:"version"`
 	History      []persistedTrack `json:"history,omitempty"`
 	Current      *persistedTrack  `json:"current,omitempty"`
@@ -137,6 +143,7 @@ func New(localPlayer Player, resolver Resolver, statePath string) *Manager {
 		attempts:   make(map[string][]time.Time),
 	}
 	manager.load()
+	manager.loadLibrary()
 	return manager
 }
 
@@ -221,6 +228,7 @@ func (manager *Manager) Add(rawURL string, owner Session, isDJ bool) (Snapshot, 
 	} else {
 		manager.upcoming = append(manager.upcoming, track)
 	}
+	manager.markPlaylistDirtyLocked()
 	manager.changedLocked()
 	return manager.snapshotLocked(owner.ID, isDJ), nil
 }
@@ -270,6 +278,7 @@ func (manager *Manager) Remove(queueID, viewerID string, isDJ bool) error {
 			return errors.New("guests can only remove their own upcoming tracks")
 		}
 		manager.upcoming = append(manager.upcoming[:index], manager.upcoming[index+1:]...)
+		manager.markPlaylistDirtyLocked()
 		manager.changedLocked()
 		return nil
 	}
@@ -281,6 +290,7 @@ func (manager *Manager) Remove(queueID, viewerID string, isDJ bool) error {
 			return errors.New("guests can only remove their own upcoming tracks")
 		}
 		manager.history = append(manager.history[:index], manager.history[index+1:]...)
+		manager.markPlaylistDirtyLocked()
 		manager.changedLocked()
 		return nil
 	}
@@ -297,6 +307,7 @@ func (manager *Manager) Move(queueID string, direction int) error {
 	}
 	manager.upcoming[index], manager.upcoming[destination] =
 		manager.upcoming[destination], manager.upcoming[index]
+	manager.markPlaylistDirtyLocked()
 	manager.changedLocked()
 	return nil
 }
@@ -309,6 +320,7 @@ func (manager *Manager) Clear() {
 	manager.current = nil
 	manager.upcoming = nil
 	manager.handledGeneration = -1
+	manager.markPlaylistDirtyLocked()
 	manager.changedLocked()
 }
 
@@ -580,6 +592,7 @@ func (manager *Manager) snapshotWithStatusLocked(
 		Volume:       manager.volume,
 		Player:       status,
 		StorageError: storageError,
+		Playlist:     manager.playlistForViewer(isDJ),
 	}
 }
 
@@ -643,6 +656,7 @@ func (manager *Manager) load() {
 			manager.upcoming = append(manager.upcoming, tracks[index+1:]...)
 		}
 	}
+	manager.playlist = saved.Playlist
 	manager.volume = max(0, min(100, saved.Volume))
 	if manager.volume == 0 && saved.Volume == 0 {
 		manager.volume = 0
@@ -655,6 +669,7 @@ func (manager *Manager) persistLocked() error {
 	}
 	saved := persistedState{
 		Version:  2,
+		Playlist: manager.playlist,
 		History:  tracksToPersistedTracks(manager.history),
 		Upcoming: tracksToPersistedTracks(manager.upcoming),
 		Volume:   manager.volume,

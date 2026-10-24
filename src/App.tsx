@@ -1,7 +1,8 @@
-import { AlertTriangle, Headphones, Keyboard, WifiOff, X } from 'lucide-react'
+import { AlertTriangle, Keyboard, WifiOff, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { LinkEntry } from './components/LinkEntry'
 import { PlayerDeck } from './components/PlayerDeck'
+import { PlaylistLibrary } from './components/PlaylistLibrary'
 import { QueuePanel } from './components/QueuePanel'
 import { SearchDialog } from './components/SearchDialog'
 import { ShareParty } from './components/ShareParty'
@@ -16,6 +17,7 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement
+      if (document.querySelector('dialog[open]')) return
       if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(target.tagName)) return
       if (event.code === 'Space') {
         event.preventDefault()
@@ -44,12 +46,9 @@ export default function App() {
           </span>
           <span>Party Hub</span>
         </a>
+        <PlaylistLibrary party={queue} onSnapshot={player.acceptSnapshot} />
         <ThemeSwitcher />
         <ShareParty />
-        <div className="topbar__context">
-          <Headphones aria-hidden="true" />
-          Host laptop
-        </div>
         <div className={`service-state ${player.status.available ? 'is-ready' : ''}`}>
           <span aria-hidden="true" />
           {player.status.available ? 'Player connected' : 'Player offline'}

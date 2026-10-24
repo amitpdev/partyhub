@@ -1,5 +1,6 @@
 import type {
   PartySnapshot,
+  PlaylistBackup,
   PlayerStatus,
   QueueState,
   ShareInfo,
@@ -112,4 +113,21 @@ export function getShareInfo() {
 
 export function endSharing() {
   return request<ShareInfo>('/api/share/end', { method: 'POST' })
+}
+
+export function fetchPlaylists() {
+  return request<PlaylistBackup>('/api/playlists')
+}
+export function changePlaylist(body: {
+  action: 'save' | 'rename' | 'delete' | 'import'
+  id?: string
+  name?: string
+  backup?: PlaylistBackup
+}) {
+  return request<PartySnapshot>('/api/playlists', { method: 'POST', body: JSON.stringify(body) })
+}
+export function loadPlaylist(id: string, mode: 'append' | 'replace', discard = false) {
+  return request<{ party: PartySnapshot; skipped: number }>('/api/playlists', {
+    method: 'POST', body: JSON.stringify({ action: 'load', id, mode, discard }),
+  })
 }

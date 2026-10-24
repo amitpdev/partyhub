@@ -155,6 +155,7 @@ export function usePartyPlayer() {
 
   return {
     party,
+    acceptSnapshot: setParty,
     status: party.player,
     notice,
     clearNotice: () => setNotice(''),

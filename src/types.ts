@@ -48,6 +48,7 @@ export interface QueueState {
 }
 
 export interface PartySnapshot extends QueueState {
+  playlist?: PlaylistLink
   revision: number
   player: PlayerStatus
   storageError?: string
@@ -57,4 +58,21 @@ export interface ShareInfo {
   active: boolean
   publicUrl: string
   guestUrl: string
+}
+
+export interface PlaylistLink {
+  id: string
+  name: string
+  dirty: boolean
+}
+export interface Playlist {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  tracks: YouTubeSearchResult[]
+}
+export interface PlaylistBackup {
+  version: 1
+  playlists: Playlist[]
 }

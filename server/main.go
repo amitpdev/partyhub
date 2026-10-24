@@ -38,6 +38,7 @@ func main() {
 	partyManager := party.New(localPlayer, resolver, party.DefaultStatePath())
 	searchCoordinator := searchcoord.NewCoordinator(3)
 	mux := http.NewServeMux()
+	registerPlaylists(mux, partyManager)
 
 	mux.HandleFunc("GET /api/health", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, http.StatusOK, localPlayer.Status())
