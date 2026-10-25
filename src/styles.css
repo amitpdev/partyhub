@@ -2739,3 +2739,12 @@ kbd {
 .ai-remember input { accent-color: var(--accent); }
 .ai-fields .playlist-hint { margin: 0 0 8px; font-size: 11px; }
 @media (max-width: 420px) { .song-actions { grid-template-columns: 1fr; } }
+
+.chatgpt-connection { display: grid; gap: 0.65rem; }
+.chatgpt-signin { background: #fff; color: #111; border: 1px solid #b8b8b8; border-radius: 0.5rem; }
+.chatgpt-signin:hover:not(:disabled) { background: #eee; color: #111; }
+.chatgpt-welcome { max-width: min(30rem, calc(100vw - 2rem)); }
+.ai-plan-label { display: block; margin-top: 0.5rem; color: var(--muted); }
+.ai-plan-label a, .chatgpt-connection a { text-decoration: underline; }
+
+.ai-test-success { display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--accent); font-weight: 600; }

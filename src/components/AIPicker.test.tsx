@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { AIPicker } from './AIPicker'
-import { clearAISettings, fetchAIModels, fetchAISettings, pickAISong, saveAISettings, testAIConnection } from '../lib/ai'
+import { clearAISettings, fetchAIModels, fetchAISettings, pickAISong, saveAISettings, testAIConnection, fetchChatGPTStatus, fetchChatGPTModels } from '../lib/ai'
 import { removeTrack } from '../lib/api'
 import type { AISettings } from '../lib/ai'
 import type { PartySnapshot } from '../types'
 
-vi.mock('../lib/ai', () => ({ fetchAISettings: vi.fn(), saveAISettings: vi.fn(), testAIConnection: vi.fn(), fetchAIModels: vi.fn(), clearAISettings: vi.fn(), pickAISong: vi.fn() }))
+vi.mock('../lib/ai', () => ({ fetchAISettings: vi.fn(), saveAISettings: vi.fn(), testAIConnection: vi.fn(), fetchAIModels: vi.fn(), clearAISettings: vi.fn(), pickAISong: vi.fn(), fetchChatGPTModels: vi.fn(), fetchChatGPTStatus: vi.fn(), startChatGPTLogin: vi.fn(), cancelChatGPTLogin: vi.fn(), welcomeChatGPT: vi.fn(), signOutChatGPT: vi.fn() }))
 vi.mock('../lib/api', () => ({ removeTrack: vi.fn() }))
 const initial: AISettings = { provider: 'openai', model: '', baseUrl: 'https://api.openai.com/v1', hasKey: false, rememberKey: false, configured: false, secureStorageAvailable: true }
 const configured: AISettings = { ...initial, model: 'text-model', hasKey: true, configured: true, rememberKey: true }
@@ -32,11 +32,12 @@ it('opens setup on first use and saves only after a successful connection test',
   expect(pickAISong).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Load models' }))
-  await screen.findByText('Choose a model below, or enter its ID.')
+  await waitFor(() => expect(fetchAIModels).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'test-key' }), expect.any(AbortSignal)), { timeout: 2000 })
   fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'text-model' } })
   fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
-  await screen.findByText('Connection works. Save to use it.')
+  const success = await screen.findByText('Connection works. Save to use it.')
+  expect(success.closest('fieldset')).not.toBeNull()
+  expect(screen.getByRole('button', { name: 'Test again' })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(saveAISettings).toHaveBeenCalledWith({ provider: 'openai', model: 'text-model', baseUrl: 'https://api.openai.com/v1', apiKey: 'test-key', rememberKey: true })
@@ -89,4 +90,60 @@ it('disconnects only after confirmation', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Disconnect AI' }))
   await waitFor(() => expect(clearAISettings).toHaveBeenCalledTimes(1))
   vi.restoreAllMocks()
+})
+
+it('loads account model names and saves ChatGPT without an API key or paid test', async () => {
+  const chat = { ...initial, provider: 'chatgpt' as const, accountId: 'account-one', model: 'text-model', configured: true }
+  vi.mocked(fetchAISettings).mockResolvedValue(chat)
+  vi.mocked(fetchChatGPTStatus).mockResolvedValue({ accounts: [{ id: 'account-one', label: 'DJ account', connected: true, remembered: true, welcomed: true }], login: { status: 'idle' } })
+  vi.mocked(fetchChatGPTModels).mockResolvedValue({ models: [{ id: 'text-model', name: 'Friendly model name' }] })
+  vi.mocked(saveAISettings).mockResolvedValue(chat)
+  render(<AIPicker onSnapshot={onSnapshot} />)
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }))
+  await screen.findByRole('option', { name: 'DJ account' })
+  expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
+  await screen.findByRole('option', { name: 'Friendly model name' })
+  expect(fetchChatGPTModels).toHaveBeenCalledTimes(1)
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(saveAISettings).toHaveBeenCalledWith(expect.objectContaining({ provider: 'chatgpt', accountId: 'account-one', model: 'text-model', apiKey: '' })))
+  expect(testAIConnection).not.toHaveBeenCalled()
+})
+
+it('debounces API key changes and ignores stale model responses', async () => {
+  let finishOld!: (result: { models: string[] }) => void
+  vi.mocked(fetchAIModels).mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+  render(<AIPicker onSnapshot={onSnapshot} />)
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }))
+  await screen.findByRole('dialog', { name: 'AI settings' })
+  fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'old-key' } })
+  await waitFor(() => expect(fetchAIModels).toHaveBeenCalledTimes(1), { timeout: 2000 })
+  const oldSignal = vi.mocked(fetchAIModels).mock.calls[0][1]!
+  fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'new-key' } })
+  expect(oldSignal.aborted).toBe(true)
+  finishOld({ models: ['stale-model'] })
+  await waitFor(() => expect(fetchAIModels).toHaveBeenCalledTimes(2), { timeout: 2000 })
+  await waitFor(() => expect(document.querySelector('datalist option[value="text-model"]')).not.toBeNull())
+  expect(document.querySelector('datalist option[value="stale-model"]')).toBeNull()
+  expect(testAIConnection).not.toHaveBeenCalled()
+})
+it('allows a manual model ID and retry when automatic discovery fails', async () => {
+  vi.mocked(fetchAISettings).mockResolvedValue(configured)
+  vi.mocked(fetchAIModels).mockRejectedValueOnce(new Error('Catalog unavailable'))
+  render(<AIPicker onSnapshot={onSnapshot} />)
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Catalog unavailable')
+  fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'manual-model' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }))
+  await waitFor(() => expect(fetchAIModels).toHaveBeenCalledTimes(2))
+  expect(screen.getByLabelText('Model')).toHaveValue('manual-model')
+})
+it('aborts model loading when the settings dialog closes', async () => {
+  vi.mocked(fetchAISettings).mockResolvedValue(configured)
+  vi.mocked(fetchAIModels).mockImplementation(() => new Promise(() => {}))
+  render(<AIPicker onSnapshot={onSnapshot} />)
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }))
+  await waitFor(() => expect(fetchAIModels).toHaveBeenCalledTimes(1))
+  const signal = vi.mocked(fetchAIModels).mock.calls[0][1]!
+  fireEvent.click(screen.getByRole('button', { name: 'Close AI settings' }))
+  await waitFor(() => expect(signal.aborted).toBe(true))
 })

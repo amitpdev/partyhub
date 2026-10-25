@@ -36,7 +36,7 @@ func TestAIControlsAreHostOnlyAndSettingsDoNotReturnKeys(t *testing.T) {
 	service := ai.New("", &aiMemorySecrets{keys: map[string]string{}})
 	mux := http.NewServeMux()
 	registerAI(mux, service, manager, searcherFunc(func(context.Context, string) ([]youtube.Track, error) { t.Fatal("unexpected search"); return nil, nil }), searchcoord.NewCoordinator(3))
-	for _, route := range []struct{ method, path string }{{"GET", "settings"}, {"POST", "settings"}, {"DELETE", "settings"}, {"POST", "models"}, {"POST", "test"}, {"POST", "pick"}} {
+	for _, route := range []struct{ method, path string }{{"GET", "settings"}, {"POST", "settings"}, {"DELETE", "settings"}, {"POST", "models"}, {"POST", "test"}, {"POST", "pick"}, {"GET", "chatgpt"}, {"POST", "chatgpt/login"}, {"DELETE", "chatgpt/login"}, {"POST", "chatgpt/signout"}, {"POST", "chatgpt/models"}, {"POST", "chatgpt/welcome"}} {
 		request := httptest.NewRequest(route.method, "https://public.example/api/ai/"+route.path, strings.NewReader(`{}`))
 		response := httptest.NewRecorder()
 		mux.ServeHTTP(response, request)
@@ -98,5 +98,25 @@ func TestAIPickHTTPInsertsNextAndCanBeUndone(t *testing.T) {
 	}
 	if len(manager.Snapshot("", true).Tracks) != 2 {
 		t.Fatal("undo failed")
+	}
+}
+
+func TestAICrossSiteRequestsCannotStartSignInOrReadSettings(t *testing.T) {
+	service := ai.New("", &aiMemorySecrets{keys: map[string]string{}})
+	mux := http.NewServeMux()
+	manager := party.New(searchTestPlayer{}, aiResolver{}, "")
+	registerAI(mux, service, manager, searcherFunc(func(context.Context, string) ([]youtube.Track, error) { return nil, nil }), searchcoord.NewCoordinator(3))
+	for _, route := range []struct{ method, path string }{{"GET", "settings"}, {"GET", "chatgpt"}, {"POST", "chatgpt/login"}} {
+		req := httptest.NewRequest(route.method, "http://localhost/api/ai/"+route.path, strings.NewReader(`{}`))
+		req.Header.Set("Origin", "https://untrusted.example")
+		res := httptest.NewRecorder()
+		mux.ServeHTTP(res, req)
+		if res.Code != 403 {
+			t.Fatalf("cross-site request accepted: %s", route.path)
+		}
+	}
+	status, _ := service.ChatGPTStatus()
+	if status.Login.Status != "idle" {
+		t.Fatal("unauthorized request started a login")
 	}
 }

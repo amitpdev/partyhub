@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -19,13 +20,90 @@ func registerAI(mux *http.ServeMux, service *ai.Service, manager *party.Manager,
 	local := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
-			if !isLocalDJ(r) {
+			origin, originErr := url.Parse(r.Header.Get("Origin"))
+			if !isLocalDJ(r) || (r.Header.Get("Origin") != "" && (originErr != nil || origin.Host != r.Host || (origin.Scheme != "http" && origin.Scheme != "https"))) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 				writeError(w, http.StatusForbidden, errors.New("AI controls are only available on the host laptop"))
 				return
 			}
 			next(w, r)
 		}
 	}
+	mux.HandleFunc("GET /api/ai/chatgpt", local(func(w http.ResponseWriter, r *http.Request) {
+		status, err := service.ChatGPTStatus()
+		if err != nil {
+			writeError(w, 500, err)
+			return
+		}
+		writeJSON(w, 200, status)
+	}))
+	mux.HandleFunc("POST /api/ai/chatgpt/login", local(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			AccountID string `json:"accountId"`
+			Remember  bool   `json:"remember"`
+		}
+		if decode(r, &body) != nil {
+			writeError(w, 400, errors.New("invalid sign-in request"))
+			return
+		}
+		link, err := service.StartChatGPTLogin(body.AccountID, body.Remember)
+		if err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"url": link})
+	}))
+	mux.HandleFunc("DELETE /api/ai/chatgpt/login", local(func(w http.ResponseWriter, r *http.Request) {
+		service.CancelChatGPTLogin()
+		writeJSON(w, 200, map[string]bool{"ok": true})
+	}))
+	mux.HandleFunc("POST /api/ai/chatgpt/welcome", local(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			AccountID string `json:"accountId"`
+		}
+		if decode(r, &body) != nil {
+			writeError(w, 400, errors.New("invalid account"))
+			return
+		}
+		if err := service.WelcomeChatGPT(body.AccountID); err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		writeJSON(w, 200, map[string]bool{"ok": true})
+	}))
+	mux.HandleFunc("POST /api/ai/chatgpt/signout", local(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			AccountID string `json:"accountId"`
+		}
+		if decode(r, &body) != nil {
+			writeError(w, 400, errors.New("invalid account"))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		warning, err := service.SignOutChatGPT(ctx, body.AccountID)
+		if err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"warning": warning})
+	}))
+	mux.HandleFunc("POST /api/ai/chatgpt/models", local(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			AccountID string `json:"accountId"`
+		}
+		if decode(r, &body) != nil {
+			writeError(w, 400, errors.New("invalid account"))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 35*time.Second)
+		defer cancel()
+		models, err := service.ChatGPTModels(ctx, body.AccountID)
+		if err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"models": models})
+	}))
 	mux.HandleFunc("GET /api/ai/settings", local(func(w http.ResponseWriter, r *http.Request) {
 		settings, err := service.Settings()
 		if err != nil {
@@ -97,6 +175,12 @@ func registerAI(mux *http.ServeMux, service *ai.Service, manager *party.Manager,
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 		defer cancel()
+		ctx, release, err := service.PickContext(ctx)
+		if err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		defer release()
 		recent := []ai.Song{}
 		end := min(len(snapshot.Tracks), max(0, snapshot.CurrentIndex+1))
 		for _, track := range snapshot.Tracks[max(0, end-8):end] {

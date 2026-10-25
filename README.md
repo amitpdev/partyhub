@@ -11,7 +11,7 @@ Audio plays on the laptop connected to your speakers, and you keep the power to 
 ## Features
 
 - Search YouTube without an API key
-- Let AI pick the next song using your own provider, model, and API key
+- Let AI pick the next song with your ChatGPT plan or your own AI provider and API key
 - Play audio on the host laptop, typically without ads
 - Persist the queue and volume between restarts
 - Save, import, export, and share local playlists

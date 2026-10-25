@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -12,9 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Draft struct {
+	AccountID   string `json:"accountId,omitempty"`
 	Provider    string `json:"provider"`
 	Model       string `json:"model"`
 	BaseURL     string `json:"baseUrl"`
@@ -22,6 +25,7 @@ type Draft struct {
 	RememberKey bool   `json:"rememberKey"`
 }
 type Settings struct {
+	AccountID              string `json:"accountId,omitempty"`
 	Provider               string `json:"provider"`
 	Model                  string `json:"model"`
 	BaseURL                string `json:"baseUrl"`
@@ -31,6 +35,7 @@ type Settings struct {
 	SecureStorageAvailable bool   `json:"secureStorageAvailable"`
 }
 type preferences struct {
+	AccountID    string `json:"accountId,omitempty"`
 	Provider     string `json:"provider"`
 	Model        string `json:"model"`
 	BaseURL      string `json:"baseUrl"`
@@ -44,6 +49,7 @@ type Secrets interface {
 	Delete(string) error
 }
 type Service struct {
+	chatGPT    *chatGPT
 	mu         sync.Mutex
 	path       string
 	prefs      preferences
@@ -76,6 +82,7 @@ func New(path string, secrets Secrets) *Service {
 			s.loadError = err
 		}
 	}
+	s.chatGPT = newChatGPT(s)
 	return s
 }
 func (s *Service) Settings() (Settings, error) {
@@ -88,6 +95,9 @@ func (s *Service) Settings() (Settings, error) {
 }
 func (s *Service) settingsLocked() Settings {
 	hasKey := s.sessionKey != "" || s.prefs.CredentialID != ""
+	if s.prefs.Provider == "chatgpt" {
+		return Settings{AccountID: s.prefs.AccountID, Provider: "chatgpt", Model: s.prefs.Model, BaseURL: apiResource, Configured: s.prefs.Model != "" && s.chatGPT.connected(s.prefs.AccountID), SecureStorageAvailable: s.secrets.Available()}
+	}
 	return Settings{Provider: s.prefs.Provider, Model: s.prefs.Model, BaseURL: s.prefs.BaseURL, HasKey: hasKey, RememberKey: s.prefs.CredentialID != "", Configured: s.prefs.Model != "" && (hasKey || (!s.prefs.NeedsKey && (s.prefs.Provider == "ollama" || s.prefs.Provider == "compatible"))), SecureStorageAvailable: s.secrets.Available()}
 }
 func normalize(d Draft, requireModel bool) (Draft, error) {
@@ -95,6 +105,10 @@ func normalize(d Draft, requireModel bool) (Draft, error) {
 	d.Model = strings.TrimSpace(d.Model)
 	d.BaseURL = strings.TrimRight(strings.TrimSpace(d.BaseURL), "/")
 	switch d.Provider {
+	case "chatgpt":
+		d.BaseURL = apiResource
+		d.APIKey = ""
+		d.RememberKey = false
 	case "openai":
 		d.BaseURL = "https://api.openai.com/v1"
 	case "anthropic":
@@ -144,6 +158,12 @@ func (s *Service) resolve(d Draft, requireModel bool) (Draft, error) {
 	if err != nil {
 		return d, err
 	}
+	if d.Provider == "chatgpt" {
+		if !s.chatGPT.connected(d.AccountID) {
+			return d, errors.New("Sign in to ChatGPT in AI settings.")
+		}
+		return d, nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.loadError != nil {
@@ -168,7 +188,7 @@ func (s *Service) resolve(d Draft, requireModel bool) (Draft, error) {
 }
 func (s *Service) Connection() (Draft, error) {
 	s.mu.Lock()
-	d := Draft{Provider: s.prefs.Provider, Model: s.prefs.Model, BaseURL: s.prefs.BaseURL}
+	d := Draft{AccountID: s.prefs.AccountID, Provider: s.prefs.Provider, Model: s.prefs.Model, BaseURL: s.prefs.BaseURL}
 	s.mu.Unlock()
 	return s.resolve(d, true)
 }
@@ -177,9 +197,26 @@ func (s *Service) Save(d Draft) (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
+	if d.Provider == "chatgpt" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		models, err := s.ChatGPTModels(ctx, d.AccountID)
+		if err != nil {
+			return Settings{}, err
+		}
+		found := false
+		for _, m := range models {
+			if m.ID == d.Model {
+				found = true
+			}
+		}
+		if !found {
+			return Settings{}, errors.New("Choose a model available to this ChatGPT account")
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := preferences{Provider: d.Provider, Model: d.Model, BaseURL: d.BaseURL, NeedsKey: d.APIKey != ""}
+	next := preferences{AccountID: d.AccountID, Provider: d.Provider, Model: d.Model, BaseURL: d.BaseURL, NeedsKey: d.APIKey != ""}
 	if d.RememberKey && d.APIKey != "" {
 		if !s.secrets.Available() {
 			return Settings{}, errors.New("secure storage is unavailable; turn off Remember key to use this session only")

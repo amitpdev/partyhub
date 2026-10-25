@@ -65,6 +65,9 @@ func (s *Service) request(ctx context.Context, d Draft, method, path string, bod
 	return data, nil
 }
 func (s *Service) Complete(ctx context.Context, d Draft, instructions, input string) (string, error) {
+	if d.Provider == "chatgpt" {
+		return s.completeChatGPT(ctx, d, instructions, input)
+	}
 	var body any
 	path := ""
 	messages := []map[string]string{{"role": "system", "content": instructions}, {"role": "user", "content": input}}
@@ -195,6 +198,14 @@ func (s *Service) Models(ctx context.Context, d Draft) ([]string, error) {
 	d, err := s.resolve(d, false)
 	if err != nil {
 		return nil, err
+	}
+	if d.Provider == "chatgpt" {
+		choices, err := s.ChatGPTModels(ctx, d.AccountID)
+		models := []string{}
+		for _, c := range choices {
+			models = append(models, c.ID)
+		}
+		return models, err
 	}
 	path := "/models"
 	if d.Provider == "ollama" {
