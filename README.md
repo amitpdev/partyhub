@@ -11,6 +11,7 @@ Audio plays on the laptop connected to your speakers, and you keep the power to 
 ## Features
 
 - Search YouTube without an API key
+- Let AI pick the next song using your own provider, model, and API key
 - Play audio on the host laptop, typically without ads
 - Persist the queue and volume between restarts
 - Save, import, export, and share local playlists
@@ -71,6 +72,7 @@ yarn verify      # Lint, test, and build
 
 ## More documentation
 
+- [AI song picks and provider setup](docs/ai.md)
 - [Playlist guide](docs/playlists.md)
 - [Architecture and YouTube playback](docs/architecture.md)
 

@@ -60,3 +60,13 @@ it('loads a sample playlist and can reset to the starting set', async () => {
   await screen.findByText('Glasshouse Groove', { selector: '.track-copy h2' })
   expect(engine.snapshot().playlist?.name).toBe('Rooftop warm-up')
 })
+
+it('simulates an AI pick without asking for credentials', async () => {
+  render(<Demo />)
+  const pick = await screen.findByRole('button', { name: 'Let AI pick' })
+  await waitFor(() => expect(pick).toBeEnabled())
+  fireEvent.click(pick)
+  expect(await screen.findByText(/No AI request sent/)).toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'AI settings' })).not.toBeInTheDocument()
+  expect(engine.snapshot().tracks[2].providerId).toBe('demo0000008')
+})

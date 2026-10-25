@@ -1,5 +1,6 @@
 import { AlertTriangle, Keyboard, X } from 'lucide-react'
 import { useEffect } from 'react'
+import { AIPicker } from './components/AIPicker'
 import { LinkEntry } from './components/LinkEntry'
 import { PlayerDeck } from './components/PlayerDeck'
 import { PlayerRecovery } from './components/PlayerRecovery'
@@ -92,12 +93,15 @@ export default function App() {
             <div className="song-adder__heading">
               <h2 id="song-adder-title">Add your song</h2>
             </div>
-            <SearchDialog
-              tracks={queue.tracks}
-              currentIndex={queue.currentIndex}
-              onAdd={player.add}
-              disabled={!player.status.available}
-            />
+            <div className="song-actions">
+              <SearchDialog
+                tracks={queue.tracks}
+                currentIndex={queue.currentIndex}
+                onAdd={player.add}
+                disabled={!player.status.available}
+              />
+              <AIPicker disabled={!player.status.available} onSnapshot={player.acceptSnapshot} />
+            </div>
             <div className="song-adder__divider"><span>or paste a link</span></div>
             <LinkEntry
               onAdd={player.add}

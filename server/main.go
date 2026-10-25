@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"partyhub/server/ai"
 	"partyhub/server/party"
 	"partyhub/server/player"
 	searchcoord "partyhub/server/search"
@@ -39,6 +40,11 @@ func main() {
 	searchCoordinator := searchcoord.NewCoordinator(3)
 	mux := http.NewServeMux()
 	registerPlaylists(mux, partyManager)
+	aiPath := ""
+	if statePath := party.DefaultStatePath(); statePath != "" {
+		aiPath = filepath.Join(filepath.Dir(statePath), "ai.json")
+	}
+	registerAI(mux, ai.New(aiPath, nil), partyManager, resolver, searchCoordinator)
 
 	mux.HandleFunc("GET /api/health", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, http.StatusOK, localPlayer.Status())

@@ -2718,3 +2718,24 @@ kbd {
 .player-help-note { padding: 12px; border-radius: 8px; background: var(--raised); }
 
 .sharing-help-trigger { text-decoration: underline; text-underline-offset: 3px; }
+
+
+.song-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 10px; }
+.ai-picker { display: contents; }
+.ai-pick-controls { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ai-pick-trigger { flex: 1; min-width: 0; }
+.ai-pick-trigger strong { font-size: 14px; }
+.ai-pick-trigger > svg { width: 18px; }
+.ai-settings-trigger { display: grid; place-items: center; flex: none; width: 30px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.ai-settings-trigger:hover { color: var(--text); background: var(--hover); }
+.ai-notice { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 12px; color: var(--muted); }
+.ai-notice.playlist-error { color: var(--negative-ink); }
+.ai-settings-dialog { max-width: 540px; }
+.ai-fields { display: grid; gap: 10px; }
+.ai-fields > label, .ai-model-heading > label { font-size: 13px; font-weight: 600; }
+.ai-fields > input, .ai-fields > select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); color: var(--text); }
+.ai-model-heading { display: flex; align-items: center; justify-content: space-between; }
+.ai-remember { display: flex; align-items: center; gap: 8px; }
+.ai-remember input { accent-color: var(--accent); }
+.ai-fields .playlist-hint { margin: 0 0 8px; font-size: 11px; }
+@media (max-width: 420px) { .song-actions { grid-template-columns: 1fr; } }

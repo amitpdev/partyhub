@@ -123,3 +123,15 @@ test('guest access can be toggled and reset restores the demo', () => {
   assert.equal(engine.snapshot().playlist.dirty, false)
   assert.equal(engine.isSharing(), true)
 })
+
+test('demo AI pick inserts a sample song next without changing playback', () => {
+  const engine = new DemoEngine()
+  const before = engine.snapshot()
+  const result = engine.pickNext()
+  assert.equal(result.party.currentIndex, before.currentIndex)
+  assert.equal(result.party.tracks[1].queueId, before.tracks[1].queueId)
+  assert.equal(result.party.player.state, before.player.state)
+  assert.equal(result.party.player.position, before.player.position)
+  assert.equal(result.party.tracks[2].queueId, result.queueId)
+  assert.equal(result.party.playlist.dirty, true)
+})

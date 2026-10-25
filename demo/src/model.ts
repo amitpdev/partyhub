@@ -98,7 +98,7 @@ export class DemoEngine {
     return copy((available.length ? available : catalog).slice(0, 6))
   }
 
-  add(url: string, guest = false) {
+  add(url: string, guest = false, next = false) {
     this.snapshot(guest)
     const parsed = new URL(url)
     if (!['www.youtube.com', 'youtube.com', 'm.youtube.com', 'youtu.be'].includes(parsed.hostname)) throw new Error('Paste a YouTube video link, or search the sample catalog.')
@@ -113,10 +113,21 @@ export class DemoEngine {
       source: 'youtube' as const, providerId, url: `https://www.youtube.com/watch?v=${providerId}`,
       title: 'Your YouTube pick', channel: 'Demo track · playback simulated', duration: 240, thumbnail: catalog[0].thumbnail,
     }
-    party.tracks.push({ ...song, queueId: id(), addedBy: guest ? this.state.guestName : 'DJ' })
+    const track = { ...song, queueId: id(), addedBy: guest ? this.state.guestName : 'DJ' }
+    if (next && party.currentIndex >= 0) party.tracks.splice(party.currentIndex + 1, 0, track)
+    else party.tracks.push(track)
     if (party.currentIndex < 0) this.select(0, 'stopped')
     this.changed(true)
     return this.snapshot(guest)
+  }
+
+  pickNext() {
+    const queued = new Set(this.state.party.tracks.map((track) => track.providerId))
+    const song = catalog.find((song) => !queued.has(song.providerId))
+    if (!song) throw new Error('All sample songs are queued. Remove one or reset the demo.')
+    const party = this.add(song.url, false, true)
+    const track = party.tracks[party.currentIndex + (party.tracks.length > 1 ? 1 : 0)]
+    return { party, queueId: track.queueId, title: track.title }
   }
 
   remove(queueId: string, guest = false) {

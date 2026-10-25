@@ -10,7 +10,7 @@ From the main Party Hub folder, install its existing dependencies once with `yar
 yarn --cwd demo dev
 ```
 
-Open http://127.0.0.1:5174. Use **DJ view** and **Guest view** to explore both sides of the party. Search any artist or song: matching sample titles are filtered, and unmatched searches show six sample songs so you can still try adding to the queue. The search dialog explains that the full app searches YouTube. Add a song as a guest, then switch back to the DJ to see it. The demo starts paused.
+Open http://127.0.0.1:5174. Use **DJ view** and **Guest view** to explore both sides of the party. Search any artist or song: matching sample titles are filtered, and unmatched searches show six sample songs so you can still try adding to the queue. The search dialog explains that the full app searches YouTube. Add a song as a guest, then switch back to the DJ to see it. The demo starts paused. **Let AI pick** simulates a suggestion from the sample catalog and inserts it next; it never asks for credentials or contacts an AI provider.
 
 Use **Reset** to restore the starting queue, playlists, guest access, and purple theme. Demo queue/library changes use the separate `partyhub.demo.v1` browser storage key. Real Party Hub queue storage is never read or written by the demo API. Each browser has its own demo; it is not a shared online party.
 

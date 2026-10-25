@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const demoRoot = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(demoRoot, '..')
 const replacements: Record<string, string> = {
+  [resolve(appRoot, 'src/components/AIPicker')]: resolve(demoRoot, 'src/AIPicker.tsx'),
   [resolve(appRoot, 'src/lib/api')]: resolve(demoRoot, 'src/api.ts'),
   [resolve(appRoot, 'src/state/queue')]: resolve(demoRoot, 'src/legacyQueue.ts'),
 }
